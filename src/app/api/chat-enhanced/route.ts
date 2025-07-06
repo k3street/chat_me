@@ -30,9 +30,12 @@ export async function POST(req: NextRequest) {
     if (relevantDocs.length > 0) {
       contextText = '\n\nRelevant context from uploaded documents and videos:\n';
       relevantDocs.forEach((doc, index) => {
-        contextText += `\n--- Context ${index + 1} (${doc.metadata.type}) ---\n`;
-        contextText += doc.content;
-        contextText += '\n';
+        contextText += `\n--- Context ${index + 1} (${doc.metadata.type === 'youtube' ? 'YouTube Video' : 'Document'}) ---\n`;
+        contextText += `Source: ${doc.metadata.title || doc.metadata.source}\n`;
+        if (doc.metadata.url) {
+          contextText += `URL: ${doc.metadata.url}\n`;
+        }
+        contextText += `Content: ${doc.content}\n`;
       });
     }
 
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
 
 Provide clear, practical, and actionable advice. If you're unsure about something, suggest resources or recommend consulting with specialists. Focus on being helpful while prioritizing safety in all recommendations.
 
-${contextText ? `Use the provided context to enhance your answer when relevant. If the context contains information that directly relates to the user's question, incorporate it into your response. Always prioritize accuracy and cite when you're using information from the provided context.` : ''}`;
+${contextText ? `Use the provided context to enhance your answer when relevant. If the context contains information that directly relates to the user's question, incorporate it into your response. When you reference information from the context, mention the source (e.g., "According to the document [title]" or "As mentioned in the YouTube video [title]"). Always prioritize accuracy and cite when you're using information from the provided context.` : ''}`;
 
     const result = await generateText({
       model: openai('gpt-4o-mini'),
@@ -62,7 +65,9 @@ ${contextText ? `Use the provided context to enhance your answer when relevant. 
       contextSources: relevantDocs.map(doc => ({
         type: doc.metadata.type,
         source: doc.metadata.source,
-        title: doc.metadata.title
+        title: doc.metadata.title,
+        url: doc.metadata.url,
+        chunkIndex: doc.metadata.chunkIndex
       }))
     });
   } catch (error) {

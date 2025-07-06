@@ -10,6 +10,9 @@ export interface DocumentChunk {
     type: 'document' | 'youtube';
     title?: string;
     timestamp?: number;
+    url?: string; // For YouTube videos or document download links
+    pageNumber?: number; // For document page references
+    chunkIndex?: number; // For referencing specific chunks
   };
 }
 
@@ -43,6 +46,7 @@ export async function addDocument(
       metadata: {
         ...metadata,
         timestamp: Date.now(),
+        chunkIndex: i,
       },
     };
     

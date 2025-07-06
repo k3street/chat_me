@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       source: fileId,
       type: 'document',
       title: file.name,
+      url: `/api/files/${fileId}`, // For document download
     });
 
     return NextResponse.json({

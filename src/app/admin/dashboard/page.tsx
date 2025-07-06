@@ -153,7 +153,12 @@ export default function AdminDashboard() {
         setYoutubeUrl('');
         alert('YouTube video transcript processed successfully!');
       } else {
-        throw new Error(data.error || 'YouTube processing failed');
+        const errorMsg = data.error || 'YouTube processing failed';
+        const details = data.details ? `\n\nDetails: ${data.details}` : '';
+        const troubleshooting = data.troubleshooting ? 
+          `\n\nTroubleshooting:\n${data.troubleshooting.map((tip: string) => `• ${tip}`).join('\n')}` : '';
+        
+        throw new Error(errorMsg + details + troubleshooting);
       }
     } catch (error) {
       console.error('YouTube error:', error);

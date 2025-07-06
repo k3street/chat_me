@@ -42,3 +42,7 @@ next-env.d.ts
 
 # generated audio files
 /public/audio/*.mp3
+
+# uploaded documents
+/uploads/*
+!/uploads/.gitkeep

@@ -1,13 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Upload, Youtube, Bot, User, Mic, MicOff, Settings } from 'lucide-react';
+import { Send, Upload, Youtube, Bot, User, Mic, MicOff, Settings, ExternalLink, FileText } from 'lucide-react';
 
 interface Message {
   id: string;
   type: 'user' | 'bot';
   content: string;
   timestamp: Date;
+  sources?: {
+    type: 'document' | 'youtube';
+    source: string;
+    title?: string;
+    url?: string;
+    chunkIndex?: number;
+  }[];
 }
 
 export default function ChatInterface() {
@@ -105,6 +112,7 @@ export default function ChatInterface() {
         type: 'bot',
         content: botContent,
         timestamp: new Date(),
+        sources: data.contextSources || [],
       };
 
       setMessages(prev => [...prev, botMessage]);
@@ -357,7 +365,41 @@ export default function ChatInterface() {
                 {message.type === 'bot' && <Bot size={20} className="mt-1 flex-shrink-0" />}
                 {message.type === 'user' && <User size={20} className="mt-1 flex-shrink-0" />}
                 <div className="flex-1">
-                  <p className="text-sm">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  
+                  {/* Source Links */}
+                  {message.type === 'bot' && message.sources && message.sources.length > 0 && (
+                    <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Sources:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {message.sources.map((source, index) => (
+                          <div key={index} className="flex items-center gap-1 text-xs">
+                            {source.type === 'youtube' ? (
+                              <Youtube size={12} className="text-red-500" />
+                            ) : (
+                              <FileText size={12} className="text-blue-500" />
+                            )}
+                            {source.url ? (
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline flex items-center gap-1"
+                              >
+                                {source.title || source.source}
+                                <ExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {source.title || source.source}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <p className="text-xs opacity-70 mt-1">
                     {message.timestamp.toLocaleTimeString()}
                   </p>

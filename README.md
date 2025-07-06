@@ -98,6 +98,21 @@ npm run dev
 - **Bulk Operations**: Clear all documents or delete specific items
 - **Statistics Dashboard**: Monitor knowledge base size and composition
 
+### Source References & Citations
+
+**Enhanced Context-Aware Responses:**
+- When the AI uses information from your uploaded documents or YouTube videos, it will automatically include source references
+- Each response shows clickable links to the original sources
+- Document links allow you to download the original file
+- YouTube links take you directly to the video
+- Source indicators show the type of content (📄 Document, 🎥 YouTube)
+
+**Source Display:**
+- Sources appear below each AI response that uses contextual information
+- Click on document names to download the original files
+- Click on YouTube titles to open the video in a new tab
+- Sources are automatically tracked and linked without manual input
+
 ## Architecture
 
 ### Frontend
