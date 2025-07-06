@@ -114,3 +114,28 @@ export function getDocumentStore(): DocumentChunk[] {
 export function clearDocumentStore(): void {
   documentStore = [];
 }
+
+export function removeDocument(documentId: string): boolean {
+  const index = documentStore.findIndex(doc => doc.id === documentId);
+  if (index !== -1) {
+    documentStore.splice(index, 1);
+    return true;
+  }
+  return false;
+}
+
+export function removeDocumentsBySource(source: string): number {
+  const initialLength = documentStore.length;
+  documentStore = documentStore.filter(doc => doc.metadata.source !== source);
+  return initialLength - documentStore.length;
+}
+
+export function getDocumentStats() {
+  const stats = {
+    total: documentStore.length,
+    documents: documentStore.filter(d => d.metadata.type === 'document').length,
+    youtube: documentStore.filter(d => d.metadata.type === 'youtube').length,
+    sources: new Set(documentStore.map(d => d.metadata.source)).size,
+  };
+  return stats;
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Upload, Youtube, Bot, User, Mic, MicOff } from 'lucide-react';
+import { Send, Upload, Youtube, Bot, User, Mic, MicOff, Settings } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -328,6 +328,14 @@ export default function ChatInterface() {
           >
             🎤 {isVoiceMode ? 'Voice ON' : 'Voice OFF'}
           </button>
+          <a
+            href="/admin/login"
+            className="flex items-center px-3 py-1 text-sm font-medium text-white hover:bg-blue-500 rounded-full transition-colors"
+            title="Admin Panel"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            Admin
+          </a>
         </div>
       </div>
 
