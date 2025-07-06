@@ -10,7 +10,10 @@ import {
   Search,
   LogOut,
   Database,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Plus,
+  Link
 } from 'lucide-react';
 import { DocumentChunk } from '@/utils/vectorSearch';
 
@@ -21,6 +24,10 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'document' | 'youtube'>('all');
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -87,6 +94,73 @@ export default function AdminDashboard() {
   const handleSignOut = async () => {
     const { signOut } = await import('next-auth/react');
     await signOut({ callbackUrl: '/admin/login' });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadProgress(true);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadDocuments();
+        setShowUploadDialog(false);
+        alert(`Document "${data.filename}" uploaded successfully!`);
+      } else {
+        throw new Error(data.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Error uploading file. Please try again.');
+    } finally {
+      setUploadProgress(false);
+      // Clear the file input
+      e.target.value = '';
+    }
+  };
+
+  const handleYouTubeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!youtubeUrl.trim()) return;
+
+    try {
+      setUploadProgress(true);
+      
+      const response = await fetch('/api/youtube', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ youtubeUrl }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadDocuments();
+        setShowYouTubeDialog(false);
+        setYoutubeUrl('');
+        alert('YouTube video transcript processed successfully!');
+      } else {
+        throw new Error(data.error || 'YouTube processing failed');
+      }
+    } catch (error) {
+      console.error('YouTube error:', error);
+      alert('Error processing YouTube video. Please check the URL and try again.');
+    } finally {
+      setUploadProgress(false);
+    }
   };
 
   const filteredDocuments = documents.filter(doc => {
@@ -189,6 +263,52 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Quick Actions Panel */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Quick Actions
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Document Upload Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                <FileText className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Upload Documents
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Add PDF, TXT, DOC, or DOCX files to the knowledge base
+                </p>
+                <button
+                  onClick={() => setShowUploadDialog(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Choose Files
+                </button>
+              </div>
+
+              {/* YouTube URL Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-red-400 transition-colors">
+                <Youtube className="h-12 w-12 text-red-600 mx-auto mb-3" />
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Add YouTube Videos
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Process video transcripts for robot building tutorials
+                </p>
+                <button
+                  onClick={() => setShowYouTubeDialog(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center mx-auto"
+                >
+                  <Link className="h-4 w-4 mr-2" />
+                  Add URL
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Controls */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -218,6 +338,22 @@ export default function AdminDashboard() {
                 </select>
 
                 <button
+                  onClick={() => setShowUploadDialog(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document
+                </button>
+
+                <button
+                  onClick={() => setShowYouTubeDialog(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+                >
+                  <Youtube className="h-4 w-4 mr-2" />
+                  Add YouTube
+                </button>
+
+                <button
                   onClick={loadDocuments}
                   disabled={loading}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
@@ -228,7 +364,7 @@ export default function AdminDashboard() {
 
                 <button
                   onClick={handleClearAll}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clear All
@@ -321,6 +457,116 @@ export default function AdminDashboard() {
             </table>
           </div>
         </div>
+
+        {/* Upload Document Dialog */}
+        {showUploadDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Upload Document
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Select File
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                      Choose a PDF, TXT, DOC, or DOCX file
+                    </p>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={handleFileUpload}
+                      disabled={uploadProgress}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className={`cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block ${uploadProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {uploadProgress ? 'Uploading...' : 'Choose File'}
+                    </label>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowUploadDialog(false)}
+                    disabled={uploadProgress}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* YouTube Dialog */}
+        {showYouTubeDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Add YouTube Video
+              </h3>
+              <form onSubmit={handleYouTubeSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    YouTube URL
+                  </label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="url"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      disabled={uploadProgress}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    The video must have captions/subtitles available
+                  </p>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowYouTubeDialog(false);
+                      setYoutubeUrl('');
+                    }}
+                    disabled={uploadProgress}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadProgress || !youtubeUrl.trim()}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {uploadProgress ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Video
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
