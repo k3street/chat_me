@@ -5,6 +5,8 @@ A React-based web chat agent application built with Next.js and TypeScript, desi
 ## Features
 
 - **AI-Powered Chat**: Uses OpenAI's GPT-4 to answer technical questions about robot building
+- **Voice Interaction**: Speech-to-text input and text-to-speech responses using OpenAI's Whisper and TTS
+- **Voice Mode**: Toggle continuous voice conversation mode
 - **Document Upload**: Upload PDF, TXT, DOC, and DOCX files to enhance the AI's knowledge base
 - **YouTube Integration**: Extract and process YouTube video transcripts for additional context
 - **Vector Search**: Semantic search through uploaded documents and video transcripts
@@ -51,6 +53,12 @@ npm run dev
 ### Basic Chat
 - Simply type your robot building questions in the chat interface
 - The AI will provide detailed, technical answers about hardware, software, and assembly
+
+### Voice Interaction
+- Click the microphone button (🎤) to record your question
+- The AI will transcribe your speech and provide both text and audio responses
+- Toggle "Voice Mode" in the header for continuous voice conversations
+- Supports OpenAI's Whisper for speech-to-text and TTS for audio responses
 
 ### Document Upload
 - Click the upload button (📎) to upload relevant documents

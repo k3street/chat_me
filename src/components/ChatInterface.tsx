@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Upload, Youtube, Bot, User } from 'lucide-react';
+import { Send, Upload, Youtube, Bot, User, Mic, MicOff } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -21,6 +21,9 @@ export default function ChatInterface() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
   
   const handleYouTubeLink = async () => {
     const youtubeUrl = prompt('Enter YouTube URL:');
@@ -163,14 +166,169 @@ export default function ChatInterface() {
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const audioChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        await processAudioInput(audioBlob);
+        
+        // Clean up
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: 'Sorry, I couldn\'t access your microphone. Please check your browser permissions.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+    }
+  };
+
+  const processAudioInput = async (audioBlob: Blob) => {
+    try {
+      setIsLoading(true);
+      
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.wav');
+
+      const response = await fetch('/api/speech-to-text', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.text) {
+        // Set the transcribed text as input
+        setInput(data.text);
+        
+        // If voice mode is enabled, automatically submit
+        if (isVoiceMode) {
+          await handleVoiceSubmit(data.text);
+        }
+      } else {
+        throw new Error(data.error || 'Speech recognition failed');
+      }
+    } catch (error) {
+      console.error('Speech processing error:', error);
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: 'Sorry, I couldn\'t process your voice input. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVoiceSubmit = async (text: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: text,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/voice-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: text }),
+      });
+
+      const data = await response.json();
+      
+      let botContent = data.response || 'I apologize, but I encountered an error processing your request.';
+      
+      // Add context indicator if relevant documents were found
+      if (data.hasContext && data.contextSources?.length > 0) {
+        botContent += '\n\n📚 *This response was enhanced using context from your uploaded documents/videos.*';
+      }
+      
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: botContent,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+
+      // Play the audio response if available
+      if (data.audioUrl) {
+        const audio = new Audio(data.audioUrl);
+        audio.play().catch(console.error);
+      }
+    } catch (error) {
+      console.error('Voice chat error:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleVoiceMode = () => {
+    setIsVoiceMode(!isVoiceMode);
+  };
+
   return (
     <div className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
       {/* Chat Header */}
       <div className="bg-blue-600 dark:bg-blue-800 text-white p-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <Bot size={24} />
-          Robot Building Assistant
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Bot size={24} />
+            Robot Building Assistant
+          </h2>
+          <button
+            onClick={toggleVoiceMode}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              isVoiceMode 
+                ? 'bg-green-500 text-white' 
+                : 'bg-blue-500 text-white hover:bg-blue-400'
+            }`}
+            title={isVoiceMode ? 'Voice Mode: ON' : 'Voice Mode: OFF'}
+          >
+            🎤 {isVoiceMode ? 'Voice ON' : 'Voice OFF'}
+          </button>
+        </div>
       </div>
 
       {/* Messages Container */}
@@ -250,6 +408,34 @@ export default function ChatInterface() {
               title="Add YouTube Link"
             >
               <Youtube size={20} />
+            </button>
+
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isLoading}
+              className={`p-2 transition-colors ${
+                isRecording 
+                  ? 'text-red-500 hover:text-red-700 animate-pulse' 
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+              title={isRecording ? 'Stop Recording' : 'Start Voice Recording'}
+            >
+              {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+            </button>
+            
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              className={`p-2 rounded-lg transition-all flex items-center gap-2 ${
+                isRecording
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'
+              }`}
+              title={isRecording ? 'Stop Recording' : 'Start Voice Recording'}
+            >
+              {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+              {isRecording ? 'Stop' : 'Record'}
             </button>
             
             <button
