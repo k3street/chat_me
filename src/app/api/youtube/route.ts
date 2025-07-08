@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { YoutubeTranscript } from 'youtube-transcript';
+import { YouTubeTranscriptLoader } from '@/utils/youtubeLoader';
 import { addDocument } from '@/utils/vectorSearch';
 
 export async function POST(req: NextRequest) {
@@ -13,82 +13,62 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract video ID from URL
-    const videoIdMatch = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-    if (!videoIdMatch) {
+    // Validate URL format
+    try {
+      new YouTubeTranscriptLoader(youtubeUrl);
+    } catch (error) {
       return NextResponse.json(
-        { error: 'Invalid YouTube URL' },
+        { error: 'Invalid YouTube URL format' },
         { status: 400 }
       );
     }
 
-    const videoId = videoIdMatch[1];
-
     try {
-      // Get transcript
-      const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-      console.log('Transcript fetched:', transcript?.length || 0, 'items');
+      // Create loader and process video
+      const loader = new YouTubeTranscriptLoader(youtubeUrl);
+      console.log('Loading YouTube transcript...');
       
-      // Check if transcript is available
-      if (!transcript || transcript.length === 0) {
-        return NextResponse.json(
-          { 
-            error: 'No transcript available for this video. This could be because:\n' +
-                   '• The video does not have captions/subtitles\n' +
-                   '• The video is private or restricted\n' +
-                   '• YouTube has changed their transcript API\n' +
-                   '• The video is live or a short\n\n' +
-                   'Please try with a different video that has auto-generated or manual captions.',
-            videoId,
-            suggestions: [
-              'Make sure the video has captions enabled',
-              'Try educational videos which usually have transcripts',
-              'Check if the video is publicly available',
-              'Avoid live streams or YouTube Shorts'
-            ]
-          },
-          { status: 400 }
-        );
-      }
+      const result = await loader.load();
+      console.log('Transcript loaded:', result.chunks.length, 'chunks');
 
-      // Combine all transcript text
-      const fullTranscript = transcript.map((item: any) => item.text).join(' ');
-      
-      // Get video title (basic implementation)
-      const videoTitle = `YouTube Video: ${videoId}`;
-      
-      // Add to vector search index
-      await addDocument(fullTranscript, {
-        source: videoId,
-        type: 'youtube',
-        title: videoTitle,
-        url: youtubeUrl,
-      });
+      // Add each chunk to vector search index with metadata
+      for (let i = 0; i < result.chunks.length; i++) {
+        const chunk = result.chunks[i];
+        await addDocument(chunk, {
+          source: result.metadata.id,
+          type: 'youtube',
+          title: result.metadata.title,
+          url: youtubeUrl,
+          chunkIndex: i,
+        });
+      }
 
       return NextResponse.json({
         success: true,
-        videoId,
-        title: videoTitle,
-        transcript: fullTranscript,
-        transcriptLength: transcript.length,
-        message: 'YouTube transcript processed and added to knowledge base',
+        videoId: result.metadata.id,
+        title: result.metadata.title,
+        author: result.metadata.author,
+        chunksProcessed: result.chunks.length,
+        totalLength: result.text.length,
+        message: `YouTube transcript processed into ${result.chunks.length} semantic chunks and added to knowledge base`,
       });
-    } catch (transcriptError) {
-      console.error('Error fetching transcript:', transcriptError);
+
+    } catch (processingError) {
+      console.error('Error processing YouTube video:', processingError);
       
-      // Provide detailed error information
-      const errorMessage = transcriptError instanceof Error ? transcriptError.message : 'Unknown error';
+      const errorMessage = processingError instanceof Error ? processingError.message : 'Unknown error';
       
       return NextResponse.json(
         { 
-          error: 'Failed to fetch transcript from YouTube',
+          error: 'Failed to process YouTube video',
           details: errorMessage,
-          videoId,
+          suggestions: YouTubeTranscriptLoader.getSuggestions(),
           troubleshooting: [
-            'Verify the video URL is correct',
-            'Check if the video has captions available',
-            'Ensure the video is publicly accessible',
-            'Try with a different video that has auto-generated captions'
+            'Verify the video has captions or auto-generated subtitles',
+            'Check if the video is publicly accessible',
+            'Try with educational or tutorial videos',
+            'Ensure the video is not a live stream or YouTube Short',
+            'Some videos may have transcript access restricted by the creator'
           ]
         },
         { status: 400 }
@@ -97,7 +77,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Error in YouTube API:', error);
     return NextResponse.json(
-      { error: 'Failed to process YouTube URL' },
+      { error: 'Failed to process request' },
       { status: 500 }
     );
   }

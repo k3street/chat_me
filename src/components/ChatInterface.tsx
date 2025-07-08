@@ -58,14 +58,29 @@ export default function ChatInterface() {
         };
         setMessages(prev => [...prev, youtubeMessage]);
       } else {
-        throw new Error(data.error || 'YouTube processing failed');
+        const errorMessage = data.error || 'YouTube processing failed';
+        const suggestion = data.suggestion || '';
+        
+        let content = `❌ Error processing YouTube video: ${errorMessage}`;
+        if (suggestion) {
+          content += `\n\n💡 ${suggestion}`;
+        }
+        content += `\n\n🔧 For enhanced YouTube processing with better reliability and metadata, visit the admin dashboard where you can:\n• Use a YouTube Data API key for improved reliability\n• Upload transcripts manually if automatic extraction fails\n• Get detailed video information (views, likes, etc.)`;
+        
+        const errorMsg: Message = {
+          id: Date.now().toString(),
+          type: 'bot',
+          content,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMsg]);
       }
     } catch (error) {
       console.error('YouTube error:', error);
       const errorMessage: Message = {
         id: Date.now().toString(),
         type: 'bot',
-        content: 'Sorry, there was an error processing the YouTube video. Please make sure the URL is valid and the video has captions available.',
+        content: '❌ Sorry, there was an error processing the YouTube video. Please make sure the URL is valid and the video has captions available.\n\n🔧 For advanced YouTube processing options, visit the admin dashboard.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);

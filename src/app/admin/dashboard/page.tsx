@@ -26,7 +26,12 @@ export default function AdminDashboard() {
   const [selectedType, setSelectedType] = useState<'all' | 'document' | 'youtube'>('all');
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
+  const [showManualTranscriptDialog, setShowManualTranscriptDialog] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [youtubeApiKey, setYoutubeApiKey] = useState('');
+  const [manualTranscriptUrl, setManualTranscriptUrl] = useState('');
+  const [manualTranscriptText, setManualTranscriptText] = useState('');
+  const [manualVideoTitle, setManualVideoTitle] = useState('');
   const [uploadProgress, setUploadProgress] = useState(false);
 
   useEffect(() => {
@@ -137,12 +142,18 @@ export default function AdminDashboard() {
     try {
       setUploadProgress(true);
       
-      const response = await fetch('/api/youtube', {
+      // Use enhanced API if API key is provided, otherwise fallback to basic API
+      const endpoint = youtubeApiKey.trim() ? '/api/youtube-enhanced' : '/api/youtube';
+      const requestBody = youtubeApiKey.trim() 
+        ? { url: youtubeUrl, apiKey: youtubeApiKey }
+        : { youtubeUrl };
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ youtubeUrl }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -151,18 +162,69 @@ export default function AdminDashboard() {
         await loadDocuments();
         setShowYouTubeDialog(false);
         setYoutubeUrl('');
-        alert('YouTube video transcript processed successfully!');
+        
+        let successMessage = 'YouTube video transcript processed successfully!';
+        if (data.videoDetails) {
+          successMessage += `\n\nVideo: ${data.videoDetails.title}`;
+          successMessage += `\nChannel: ${data.videoDetails.channel}`;
+          successMessage += `\nPublished: ${data.videoDetails.published}`;
+          successMessage += `\nDuration: ${data.videoDetails.duration}`;
+          successMessage += `\nViews: ${data.videoDetails.views}`;
+        }
+        successMessage += `\n\nProcessed into ${data.chunks} chunks.`;
+        
+        alert(successMessage);
       } else {
         const errorMsg = data.error || 'YouTube processing failed';
+        const suggestion = data.suggestion ? `\n\nSuggestion: ${data.suggestion}` : '';
         const details = data.details ? `\n\nDetails: ${data.details}` : '';
         const troubleshooting = data.troubleshooting ? 
           `\n\nTroubleshooting:\n${data.troubleshooting.map((tip: string) => `• ${tip}`).join('\n')}` : '';
         
-        throw new Error(errorMsg + details + troubleshooting);
+        throw new Error(errorMsg + suggestion + details + troubleshooting);
       }
     } catch (error) {
       console.error('YouTube error:', error);
-      alert('Error processing YouTube video. Please check the URL and try again.');
+      alert(`Error processing YouTube video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setUploadProgress(false);
+    }
+  };
+
+  const handleManualTranscriptSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualTranscriptUrl.trim() || !manualTranscriptText.trim()) return;
+
+    try {
+      setUploadProgress(true);
+      
+      const response = await fetch('/api/youtube-manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          youtubeUrl: manualTranscriptUrl,
+          transcriptText: manualTranscriptText,
+          videoTitle: manualVideoTitle || undefined
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadDocuments();
+        setShowManualTranscriptDialog(false);
+        setManualTranscriptUrl('');
+        setManualTranscriptText('');
+        setManualVideoTitle('');
+        alert(`Manual transcript processed successfully into ${data.chunksProcessed} chunks!`);
+      } else {
+        throw new Error(data.error || 'Manual transcript processing failed');
+      }
+    } catch (error) {
+      console.error('Manual transcript error:', error);
+      alert('Error processing manual transcript. Please check your input and try again.');
     } finally {
       setUploadProgress(false);
     }
@@ -274,7 +336,7 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Quick Actions
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Document Upload Area */}
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                 <FileText className="h-12 w-12 text-blue-600 mx-auto mb-3" />
@@ -297,17 +359,38 @@ export default function AdminDashboard() {
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-red-400 transition-colors">
                 <Youtube className="h-12 w-12 text-red-600 mx-auto mb-3" />
                 <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Add YouTube Videos
+                  Auto YouTube
                 </h4>
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                  Process video transcripts for robot building tutorials
+                  Automatically extract transcripts (may not work for all videos)
                 </p>
                 <button
                   onClick={() => setShowYouTubeDialog(true)}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center mx-auto"
                 >
                   <Link className="h-4 w-4 mr-2" />
-                  Add URL
+                  Try Auto
+                </button>
+              </div>
+
+              {/* Manual Transcript Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
+                <div className="flex items-center justify-center mb-3">
+                  <Youtube className="h-8 w-8 text-green-600 mr-2" />
+                  <FileText className="h-8 w-8 text-green-600" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Manual Transcript
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Paste YouTube transcript text manually (recommended)
+                </p>
+                <button
+                  onClick={() => setShowManualTranscriptDialog(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center mx-auto"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Manual
                 </button>
               </div>
             </div>
@@ -355,7 +438,15 @@ export default function AdminDashboard() {
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
                 >
                   <Youtube className="h-4 w-4 mr-2" />
-                  Add YouTube
+                  Auto YouTube
+                </button>
+
+                <button
+                  onClick={() => setShowManualTranscriptDialog(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Manual Transcript
                 </button>
 
                 <button
@@ -519,6 +610,37 @@ export default function AdminDashboard() {
               </h3>
               <form onSubmit={handleYouTubeSubmit} className="space-y-4">
                 <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      YouTube Data API Key (Optional)
+                    </label>
+                    <a 
+                      href="https://console.cloud.google.com/apis/credentials" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Get API Key →
+                    </a>
+                  </div>
+                  <input
+                    type="password"
+                    value={youtubeApiKey}
+                    onChange={(e) => setYoutubeApiKey(e.target.value)}
+                    placeholder="Your YouTube Data API v3 key"
+                    disabled={uploadProgress}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-1">
+                    <p>✨ Enhanced features with API key:</p>
+                    <ul className="list-disc list-inside ml-2 space-y-0.5">
+                      <li>Video title, views, likes, and channel info</li>
+                      <li>Better transcript extraction reliability</li>
+                      <li>Professional error handling</li>
+                    </ul>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     YouTube URL
                   </label>
@@ -538,12 +660,19 @@ export default function AdminDashboard() {
                     The video must have captions/subtitles available
                   </p>
                 </div>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    <strong>Note:</strong> If transcript extraction fails, use the "Manual Transcript" option 
+                    or get a YouTube Data API key for better reliability.
+                  </p>
+                </div>
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
                     onClick={() => {
                       setShowYouTubeDialog(false);
                       setYoutubeUrl('');
+                      setYoutubeApiKey('');
                     }}
                     disabled={uploadProgress}
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -564,6 +693,109 @@ export default function AdminDashboard() {
                       <>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Video
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Transcript Dialog */}
+        {showManualTranscriptDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Add Manual YouTube Transcript
+              </h3>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  How to get YouTube transcripts manually:
+                </h4>
+                <ol className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
+                  <li>Go to the YouTube video page</li>
+                  <li>Click the "..." (more) button below the video</li>
+                  <li>Select "Show transcript"</li>
+                  <li>Copy the transcript text and paste it below</li>
+                </ol>
+              </div>
+              <form onSubmit={handleManualTranscriptSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    YouTube URL *
+                  </label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="url"
+                      value={manualTranscriptUrl}
+                      onChange={(e) => setManualTranscriptUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      disabled={uploadProgress}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Video Title (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualVideoTitle}
+                    onChange={(e) => setManualVideoTitle(e.target.value)}
+                    placeholder="Enter a descriptive title for the video"
+                    disabled={uploadProgress}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Transcript Text *
+                  </label>
+                  <textarea
+                    value={manualTranscriptText}
+                    onChange={(e) => setManualTranscriptText(e.target.value)}
+                    placeholder="Paste the YouTube transcript text here..."
+                    disabled={uploadProgress}
+                    rows={10}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white resize-vertical"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {manualTranscriptText.length} characters
+                  </p>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowManualTranscriptDialog(false);
+                      setManualTranscriptUrl('');
+                      setManualTranscriptText('');
+                      setManualVideoTitle('');
+                    }}
+                    disabled={uploadProgress}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadProgress || !manualTranscriptUrl.trim() || !manualTranscriptText.trim()}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {uploadProgress ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Transcript
                       </>
                     )}
                   </button>
