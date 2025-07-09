@@ -6,7 +6,7 @@ A React-based web chat agent application built with Next.js and TypeScript, desi
 
 - **AI-Powered Chat**: Uses OpenAI's GPT-4 to answer technical questions about robot building
 - **Voice Interaction**: Speech-to-text input and text-to-speech responses using OpenAI's Whisper and TTS
-- **Voice Mode**: Toggle continuous voice conversation mode
+- **Voice Mode**: Toggle continuous voice conversation mode with stop speaking controls
 - **Document Upload**: Upload PDF, TXT, DOC, and DOCX files to enhance the AI's knowledge base
 - **YouTube Integration**: Extract and process YouTube video transcripts with enhanced metadata using YouTube Data API v3
 - **🎬 Channel Batch Processing**: Process entire YouTube channels in one operation with Whisper AI transcription for universal coverage
@@ -15,7 +15,11 @@ A React-based web chat agent application built with Next.js and TypeScript, desi
 - **Admin Interface**: Secure admin panel for managing vector search sources and documents
 - **Authentication**: Login-protected admin dashboard with document management
 - **Responsive Design**: Modern, mobile-friendly interface built with Tailwind CSS
-- **Real-time Chat**: Interactive chat interface with message history
+- **Real-time Chat**: Interactive chat interface with persistent message history
+- **🧠 Context-Aware Conversations**: AI remembers recent conversation history for more natural responses
+- **💾 Persistent Chat History**: Chat conversations are saved locally and persist across browser sessions
+- **🔄 Chat Management**: Clear chat history and reset conversations with built-in controls
+- **🎯 Enhanced TTS Controls**: Stop speaking functionality to cancel ongoing text-to-speech responses
 
 ## Getting Started
 
@@ -57,6 +61,16 @@ ADMIN_PASSWORD=your-secure-password-here
 YOUTUBE_API_KEY=your_youtube_api_key_here
 ```
 
+**Required Environment Variables:**
+- `OPENAI_API_KEY` - Required for all AI features (chat, voice, Whisper transcription)
+- `YOUTUBE_API_KEY` - Required for enhanced YouTube channel processing and metadata extraction
+- `NEXTAUTH_SECRET` - Required for admin authentication
+- `ADMIN_EMAIL` & `ADMIN_PASSWORD` - Required for admin dashboard access
+
+**Optional Configuration:**
+- `NEXT_PUBLIC_APP_URL` - For production deployment (defaults to localhost:3000)
+- `NEXTAUTH_URL` - For production authentication (defaults to localhost:3000)
+
 4. Run the development server:
 ```bash
 npm run dev
@@ -69,12 +83,18 @@ npm run dev
 ### Basic Chat
 - Simply type your robot building questions in the chat interface
 - The AI will provide detailed, technical answers about hardware, software, and assembly
+- **🧠 Context-Aware Responses**: The AI remembers your recent conversation history for more natural, contextual responses
+- **💾 Persistent Chat History**: Your conversations are automatically saved to your browser's local storage and persist across sessions
+- **🔄 Chat Management**: Use the "Clear Chat" button to reset the conversation and start fresh
+- **📊 Storage Status**: The chat header shows your current storage usage and status
 
 ### Voice Interaction
 - Click the microphone button (🎤) to record your question
 - The AI will transcribe your speech and provide both text and audio responses
 - Toggle "Voice Mode" in the header for continuous voice conversations
+- **🛑 Stop Speaking**: Click the "Stop Speaking" button to cancel ongoing text-to-speech responses
 - Supports OpenAI's Whisper for speech-to-text and TTS for audio responses
+- **Context-Aware Voice**: Voice responses include conversation history for better context
 
 ### Document Upload
 - Click the upload button (📎) to upload relevant documents
@@ -83,9 +103,9 @@ npm run dev
 
 ### YouTube Integration
 
-**Professional YouTube Integration with Five Options:**
+**Professional YouTube Integration with Four Options:**
 
-1. **🎬 Channel Batch Processing with Whisper AI** ⭐ **New Feature - Highly Recommended**
+1. **🎬 Channel Batch Processing with Whisper AI** ⭐ **Primary Feature - Highly Recommended**
    - Process entire YouTube channels in one operation
    - Automatically fetch all videos using YouTube Data API v3
    - Extract transcripts using OpenAI Whisper AI for maximum reliability
@@ -95,7 +115,7 @@ npm run dev
    - Perfect for educational channels, tutorial series, and technical content creators
    - ✅ **Universal Coverage**: Processes videos regardless of caption availability
 
-2. **🤖 Whisper AI Transcription** ⭐ **New Feature - Works on ANY Video**
+2. **🤖 Whisper AI Transcription** ⭐ **Primary Feature - Works on ANY Video**
    - Uses OpenAI's Whisper AI for professional-grade transcription
    - Works on videos with or without existing captions
    - Downloads audio and transcribes using state-of-the-art AI
@@ -110,12 +130,7 @@ npm run dev
    - Enhanced error handling and troubleshooting
    - Simply add your YouTube Data API key in the admin dashboard
 
-4. **Automatic Transcript Extraction** (Basic)
-   - Quick processing for videos with auto-generated captions
-   - Works best with educational and tutorial content
-   - No API key required
-
-5. **Manual Transcript Upload** (Always Works)
+4. **Manual Transcript Upload** (Always Works)
    - Upload transcripts directly for any video
    - Most reliable method for all content types
    - Perfect fallback when automatic extraction fails
@@ -171,12 +186,36 @@ npm run dev
 - Document links allow you to download the original file
 - YouTube links take you directly to the video
 - Source indicators show the type of content (📄 Document, 🎥 YouTube)
+- **🧠 Conversation Context**: The AI remembers recent messages for more natural, contextual responses
+- **💾 Persistent History**: Chat conversations are automatically saved and restored across browser sessions
 
 **Source Display:**
 - Sources appear below each AI response that uses contextual information
 - Click on document names to download the original files
 - Click on YouTube titles to open the video in a new tab
 - Sources are automatically tracked and linked without manual input
+- **Context Integration**: Source information is enhanced with conversation history for better relevance
+
+## Enhanced Chat Features
+
+### Message History and Context
+- **🧠 Context-Aware Conversations**: The AI remembers your recent conversation history, providing more natural and relevant responses
+- **💾 Persistent Chat History**: All conversations are automatically saved to your browser's localStorage and persist across sessions
+- **📊 Storage Status**: Real-time storage usage indicator in the chat header
+- **🔄 Chat Management**: Clear chat history and reset conversations with the "Clear Chat" button
+- **🎯 Smart Context**: Recent messages are automatically included in AI requests for better understanding
+
+### Voice and TTS Controls
+- **🛑 Stop Speaking**: Cancel ongoing text-to-speech responses with a dedicated stop button
+- **🎤 Voice Mode**: Toggle continuous voice conversation mode for hands-free interaction
+- **🔊 Enhanced TTS**: High-quality OpenAI text-to-speech with full playback controls
+- **🎙️ Universal Speech Recognition**: OpenAI Whisper for accurate speech-to-text in any language
+
+### User Interface Improvements
+- **Streamlined Design**: YouTube button removed from chat interface for cleaner experience
+- **Professional Focus**: Dedicated admin tools for advanced YouTube channel processing
+- **Responsive Controls**: All chat features optimized for desktop and mobile use
+- **Status Indicators**: Clear visual feedback for storage, processing, and voice states
 
 ## Architecture
 
@@ -194,13 +233,13 @@ npm run dev
 - **NextAuth** for secure authentication
 
 ### Key Components
-- `ChatInterface.tsx` - Main chat UI component
+- `ChatInterface.tsx` - Main chat UI component with persistent history and TTS controls
 - `vectorSearch.ts` - Vector search and embedding utilities
-- `/api/chat-enhanced` - AI chat with context awareness
-- `/api/upload` - Document processing endpoint
+- `/api/chat-enhanced` - AI chat with context awareness and message history
+- `/api/voice-chat` - Voice interaction with conversation context
 - `/api/youtube-enhanced` - Professional YouTube integration
-- `/api/youtube-channel` - Batch channel processing with YouTube Data API v3
-- `/api/youtube-whisper` - AI transcription using OpenAI Whisper
+- `/api/youtube-channel` - Batch channel processing with YouTube Data API v3 and Whisper AI
+- `/api/youtube-whisper` - AI transcription using OpenAI Whisper for universal video processing
 
 ## Technologies Used
 
@@ -211,6 +250,30 @@ npm run dev
 - **YouTube Data API v3** - Professional video metadata extraction
 - **Vector Embeddings** - Semantic search and similarity matching
 - **NextAuth** - Secure authentication system
+
+## Recent Updates & Key Improvements
+
+### 🆕 Latest Features (Current Version)
+- **🎬 Universal YouTube Processing**: Complete migration to OpenAI Whisper AI for 100% video coverage
+- **🧠 Context-Aware Chat**: AI remembers conversation history for more natural responses
+- **💾 Persistent Chat History**: Conversations automatically saved to browser localStorage
+- **🛑 Enhanced TTS Controls**: Stop speaking functionality and improved voice interaction
+- **🎯 Streamlined UI**: Removed YouTube button from chat interface for professional focus
+- **📊 Storage Management**: Real-time storage status and chat management controls
+
+### 🔧 Technical Improvements
+- **Whisper AI Integration**: All YouTube processing now uses OpenAI Whisper for universal transcription
+- **Message History API**: Chat and voice endpoints enhanced with conversation context
+- **LocalStorage Persistence**: Automatic chat history saving and restoration
+- **Error Handling**: Improved error handling and recovery for all API endpoints
+- **Performance Optimization**: Efficient message history management and storage
+
+### 🎭 User Experience Enhancements
+- **Cleaner Interface**: Removed redundant YouTube button from chat interface
+- **Professional Focus**: Dedicated admin tools for advanced YouTube channel processing
+- **Better Voice Control**: Stop speaking button and enhanced TTS management
+- **Context Awareness**: AI responses now consider previous conversation for better relevance
+- **Persistent Sessions**: Chat history survives browser restarts and session changes
 
 ## Contributing
 
@@ -237,25 +300,26 @@ chat_me/
 │   │   │   ├── admin/         # Admin management endpoints
 │   │   │   ├── auth/          # NextAuth configuration
 │   │   │   ├── chat/          # Basic chat API
-│   │   │   ├── chat-enhanced/ # AI chat with context awareness
+│   │   │   ├── chat-enhanced/ # AI chat with context awareness and message history
 │   │   │   ├── files/         # File management API
 │   │   │   ├── speech-to-text/ # Voice transcription
 │   │   │   ├── upload/        # Document upload handler
-│   │   │   ├── voice-chat/    # Voice interaction API
+│   │   │   ├── voice-chat/    # Voice interaction API with conversation context
 │   │   │   ├── youtube/       # Basic YouTube processing
 │   │   │   ├── youtube-enhanced/ # Professional YouTube with API
-│   │   │   ├── youtube-channel/ # Batch channel processing
-│   │   │   ├── youtube-whisper/ # AI transcription with Whisper
+│   │   │   ├── youtube-channel/ # Batch channel processing with Whisper AI
+│   │   │   ├── youtube-whisper/ # AI transcription with OpenAI Whisper
 │   │   │   └── youtube-manual/ # Manual transcript upload
 │   │   ├── admin/             # Admin dashboard pages
 │   │   └── globals.css        # Global styles
 │   ├── components/            # React components
-│   │   └── ChatInterface.tsx  # Main chat UI
+│   │   └── ChatInterface.tsx  # Main chat UI with persistent history and TTS controls
 │   ├── utils/                 # Utility functions
 │   │   ├── vectorSearch.ts    # Vector search engine
 │   │   └── youtubeLoader.ts   # YouTube processing utilities
 │   └── types/                 # TypeScript definitions
 ├── public/                    # Static assets
+│   └── audio/                 # TTS audio files
 ├── uploads/                   # File upload directory
 ├── .env.local                 # Environment configuration
 └── README.md                  # This file

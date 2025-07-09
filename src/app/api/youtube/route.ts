@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Validate URL format
     try {
       new YouTubeTranscriptLoader(youtubeUrl);
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid YouTube URL format' },
         { status: 400 }

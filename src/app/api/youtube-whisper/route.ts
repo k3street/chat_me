@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { addDocument } from '@/utils/vectorSearch';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink, readFile } from 'fs/promises';
 import { join } from 'path';
 import ytdl from '@distube/ytdl-core';
-import { createReadStream } from 'fs';
 
 interface YouTubeVideoDetails {
   title: string;
@@ -138,7 +137,7 @@ async function transcribeWithWhisper(audioPath: string): Promise<string> {
     const formData = new FormData();
     
     // Read the audio file
-    const audioBuffer = await require('fs').promises.readFile(audioPath);
+    const audioBuffer = await readFile(audioPath);
     const audioBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
     
     formData.append('file', audioBlob, 'audio.mp4');

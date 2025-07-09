@@ -4,10 +4,11 @@ import path from 'path';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const fileId = params.id;
+    const resolvedParams = await params;
+    const fileId = resolvedParams.id;
     
     // Find the file in the uploads directory
     const uploadsDir = path.join(process.cwd(), 'uploads');

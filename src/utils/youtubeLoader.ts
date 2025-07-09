@@ -68,7 +68,7 @@ export class YouTubeTranscriptLoader {
       }
 
       // Process transcript
-      const fullText = transcript.map((item: any) => item.text).join(' ');
+      const fullText = transcript.map((item: { text: string }) => item.text).join(' ');
       
       // Create semantic chunks (similar to LangChain's text splitters)
       const chunks = this.createSemanticChunks(fullText, transcript);
@@ -89,7 +89,7 @@ export class YouTubeTranscriptLoader {
    * Create semantic chunks from transcript with timing information
    * Similar to LangChain's RecursiveCharacterTextSplitter
    */
-  private createSemanticChunks(fullText: string, transcript: any[]): string[] {
+  private createSemanticChunks(fullText: string, transcript: { text: string; offset?: number }[]): string[] {
     const chunks: string[] = [];
     const maxChunkSize = 1000;
     const overlap = 200;

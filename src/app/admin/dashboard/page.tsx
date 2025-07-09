@@ -832,7 +832,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    <strong>Note:</strong> If transcript extraction fails, use the "Manual Transcript" option 
+                    <strong>Note:</strong> If transcript extraction fails, use the &quot;Manual Transcript&quot; option 
                     or get a YouTube Data API key for better reliability.
                   </p>
                 </div>
@@ -885,8 +885,8 @@ export default function AdminDashboard() {
                 </h4>
                 <ol className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
                   <li>Go to the YouTube video page</li>
-                  <li>Click the "..." (more) button below the video</li>
-                  <li>Select "Show transcript"</li>
+                  <li>Click the &quot;...&quot; (more) button below the video</li>
+                  <li>Select &quot;Show transcript&quot;</li>
                   <li>Copy the transcript text and paste it below</li>
                 </ol>
               </div>
