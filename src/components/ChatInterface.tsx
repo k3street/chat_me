@@ -43,6 +43,25 @@ export default function ChatInterface() {
     }
   };
 
+  // Helper function to prepare message history for API calls
+  const prepareMessageHistory = (messages: Message[], maxMessages: number = 8) => {
+    // Get the last N messages (excluding the current one being processed)
+    // Filter out system messages and focus on conversation flow
+    const conversationMessages = messages.filter(msg => 
+      !msg.content.includes('📚 *This response was enhanced using context from your uploaded documents/videos.*') &&
+      !msg.content.includes('❌ Error') &&
+      !msg.content.includes('🎥 YouTube video transcript processed')
+    );
+    
+    const recentMessages = conversationMessages.slice(-maxMessages);
+    
+    return recentMessages.map(msg => ({
+      type: msg.type,
+      content: msg.content.replace(/📚 \*This response was enhanced using context from your uploaded documents\/videos\.\*/, '').trim(),
+      timestamp: msg.timestamp.toISOString()
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -59,12 +78,18 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
+      // Prepare message history for API
+      const messageHistory = prepareMessageHistory(messages);
+      
       const response = await fetch('/api/chat-enhanced', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ 
+          message: input,
+          messageHistory: messageHistory 
+        }),
       });
 
       const data = await response.json();
@@ -236,12 +261,18 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
+      // Prepare message history for API
+      const messageHistory = prepareMessageHistory(messages);
+      
       const response = await fetch('/api/voice-chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ 
+          message: text,
+          messageHistory: messageHistory 
+        }),
       });
 
       const data = await response.json();

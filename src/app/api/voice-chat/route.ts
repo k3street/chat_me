@@ -8,7 +8,7 @@ import path from 'path';
 
 export async function POST(req: NextRequest) {
   try {
-    const { message } = await req.json();
+    const { message, messageHistory } = await req.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -39,6 +39,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Build conversation history context
+    let conversationHistory = '';
+    if (messageHistory && Array.isArray(messageHistory) && messageHistory.length > 0) {
+      conversationHistory = '\n\nRecent conversation history:\n';
+      messageHistory.forEach((msg: { type: string; content: string; timestamp: string }) => {
+        // Truncate very long messages to keep context manageable for voice
+        const truncatedContent = msg.content.length > 200 
+          ? msg.content.substring(0, 200) + '...' 
+          : msg.content;
+        conversationHistory += `${msg.type === 'user' ? 'User' : 'Assistant'}: ${truncatedContent}\n`;
+      });
+      conversationHistory += '\nCurrent message:\n';
+    }
+
     const systemPrompt = `You are a knowledgeable robot building assistant. You specialize in helping people with technical questions about building robots, including:
 
 - Hardware components (sensors, actuators, microcontrollers, etc.)
@@ -50,13 +64,15 @@ export async function POST(req: NextRequest) {
 
 Provide clear, practical, and actionable advice. Keep your responses concise and conversational since this is a voice interaction. If you're unsure about something, suggest resources or recommend consulting with specialists. Focus on being helpful while prioritizing safety in all recommendations.
 
-${contextText ? `Use the provided context to enhance your answer when relevant. If the context contains information that directly relates to the user's question, incorporate it into your response. Always prioritize accuracy and cite when you're using information from the provided context.` : ''}`;
+${contextText ? `Use the provided context to enhance your answer when relevant. If the context contains information that directly relates to the user's question, incorporate it into your response. Always prioritize accuracy and cite when you're using information from the provided context.` : ''}
+
+${conversationHistory ? `Consider the conversation history to provide contextually relevant responses. You can reference previous questions or build upon earlier discussions, but focus primarily on the current message.` : ''}`;
 
     // Generate text response
     const result = await generateText({
       model: openai('gpt-4o-mini'),
       system: systemPrompt,
-      prompt: message + contextText,
+      prompt: conversationHistory + message + contextText,
       maxTokens: 500, // Shorter for voice responses
     });
 
