@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, Upload, Bot, User, Mic, MicOff, Settings, ExternalLink, FileText, VolumeX } from 'lucide-react';
 
 interface Message {
@@ -18,14 +18,7 @@ interface Message {
 }
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'bot',
-      content: 'Hello! I\'m your Robot Building Assistant. I can help you with technical questions about building robots. You can ask me questions, upload documents, or use voice commands for a more interactive experience.',
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -33,7 +26,30 @@ export default function ChatInterface() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  
+
+  // Load messages from localStorage on component mount
+  useEffect(() => {
+    const storedMessages = loadMessagesFromStorage();
+    setMessages(storedMessages);
+  }, []);
+
+  // Save messages to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveMessagesToStorage(messages);
+    }
+  }, [messages]);
+
+  // Optional: Add a subtle indicator showing when messages are being saved
+  const getStorageStatus = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? `💾 ${JSON.parse(stored).length} messages saved` : '';
+    } catch {
+      return '';
+    }
+  };
+
   const stopSpeaking = () => {
     if (currentAudio) {
       currentAudio.pause();
@@ -41,6 +57,19 @@ export default function ChatInterface() {
       setCurrentAudio(null);
       setIsSpeaking(false);
     }
+  };
+
+  const clearChatHistory = () => {
+    const defaultMessages = [
+      {
+        id: '1',
+        type: 'bot' as const,
+        content: 'Hello! I\'m your Robot Building Assistant. I can help you with technical questions about building robots. You can ask me questions, upload documents, or use voice commands for a more interactive experience.',
+        timestamp: new Date(),
+      },
+    ];
+    setMessages(defaultMessages);
+    clearMessagesFromStorage();
   };
 
   // Helper function to prepare message history for API calls
@@ -329,25 +358,81 @@ export default function ChatInterface() {
     setIsVoiceMode(!isVoiceMode);
   };
 
+  // Helper functions for localStorage management
+  const STORAGE_KEY = 'chat-messages';
+
+  const saveMessagesToStorage = (messages: Message[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (error) {
+      console.warn('Failed to save messages to localStorage:', error);
+    }
+  };
+
+  const loadMessagesFromStorage = (): Message[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Convert timestamp strings back to Date objects
+      return parsed.map((msg: Message & { timestamp: string }) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      }));
+    }
+  } catch (error) {
+    console.warn('Failed to load messages from localStorage:', error);
+  }
+    
+    // Return default message if no stored messages or error
+    return [
+      {
+        id: '1',
+        type: 'bot',
+        content: 'Hello! I\'m your Robot Building Assistant. I can help you with technical questions about building robots. You can ask me questions, upload documents, or use voice commands for a more interactive experience.',
+        timestamp: new Date(),
+      },
+    ];
+  };
+
+  const clearMessagesFromStorage = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to clear messages from localStorage:', error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
       {/* Chat Header */}
       <div className="bg-blue-600 dark:bg-blue-800 text-white p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Bot size={24} />
-            Robot Building Assistant
-          </h2>
+            <div>
+              <h2 className="text-xl font-semibold">Robot Building Assistant</h2>
+              <p className="text-xs text-blue-200 opacity-75">{getStorageStatus()}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleVoiceMode}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                isVoiceMode 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-blue-500 text-white hover:bg-blue-400'
+              }`}
+              title={isVoiceMode ? 'Voice Mode: ON' : 'Voice Mode: OFF'}
+            >
+              🎤 {isVoiceMode ? 'Voice ON' : 'Voice OFF'}
+            </button>
           <button
-            onClick={toggleVoiceMode}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              isVoiceMode 
-                ? 'bg-green-500 text-white' 
-                : 'bg-blue-500 text-white hover:bg-blue-400'
-            }`}
-            title={isVoiceMode ? 'Voice Mode: ON' : 'Voice Mode: OFF'}
+            onClick={clearChatHistory}
+            className="px-3 py-1 rounded-full text-sm font-medium bg-red-500 text-white hover:bg-red-400 transition-colors"
+            title="Clear Chat History"
           >
-            🎤 {isVoiceMode ? 'Voice ON' : 'Voice OFF'}
+            🗑️ Clear Chat
           </button>
           <a
             href="/admin/login"
@@ -357,6 +442,7 @@ export default function ChatInterface() {
             <Settings className="h-4 w-4 mr-1" />
             Admin
           </a>
+          </div>
         </div>
       </div>
 
