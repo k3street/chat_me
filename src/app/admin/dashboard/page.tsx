@@ -32,6 +32,11 @@ export default function AdminDashboard() {
   const [manualTranscriptUrl, setManualTranscriptUrl] = useState('');
   const [manualTranscriptText, setManualTranscriptText] = useState('');
   const [manualVideoTitle, setManualVideoTitle] = useState('');
+  const [channelInput, setChannelInput] = useState('');
+  const [maxVideos, setMaxVideos] = useState(25);
+  const [skipExisting, setSkipExisting] = useState(true);
+  const [showChannelDialog, setShowChannelDialog] = useState(false);
+  const [showWhisperDialog, setShowWhisperDialog] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
 
   useEffect(() => {
@@ -230,6 +235,113 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleChannelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!channelInput.trim()) return;
+
+    try {
+      setUploadProgress(true);
+      
+      const response = await fetch('/api/youtube-channel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channelInput,
+          apiKey: youtubeApiKey,
+          maxVideos,
+          skipExisting
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadDocuments();
+        setShowChannelDialog(false);
+        setChannelInput('');
+        
+        const result = data.result;
+        let successMessage = `🎉 Channel Processing Complete!\n\n`;
+        successMessage += `📺 Channel: ${result.channelTitle}\n`;
+        successMessage += `📊 Videos Found: ${result.totalVideosFound}\n`;
+        successMessage += `✅ Successfully Processed: ${result.videosWithTranscripts}\n`;
+        successMessage += `❌ Failed/No Transcript: ${result.videosFailed}\n`;
+        successMessage += `📄 Total Chunks Added: ${result.totalChunks}\n\n`;
+        
+        if (result.videosWithTranscripts > 0) {
+          successMessage += `Your knowledge base now includes transcripts from ${result.videosWithTranscripts} videos!`;
+        }
+        
+        alert(successMessage);
+      } else {
+        throw new Error(data.error || 'Channel processing failed');
+      }
+    } catch (error) {
+      console.error('Channel processing error:', error);
+      alert(`Error processing channel: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setUploadProgress(false);
+    }
+  };
+
+  const handleWhisperSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!youtubeUrl.trim()) return;
+
+    try {
+      setUploadProgress(true);
+      
+      const response = await fetch('/api/youtube-whisper', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: youtubeUrl,
+          apiKey: youtubeApiKey
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadDocuments();
+        setShowWhisperDialog(false);
+        setYoutubeUrl('');
+        
+        let successMessage = `🎉 Whisper Transcription Complete!\n\n`;
+        successMessage += `🎥 Video: ${data.title}\n`;
+        successMessage += `📺 Channel: ${data.channelTitle}\n`;
+        
+        if (data.videoDetails) {
+          successMessage += `📅 Published: ${new Date(data.videoDetails.publishedAt).toLocaleDateString()}\n`;
+          successMessage += `⏱️ Duration: ${data.videoDetails.duration || 'Unknown'}\n`;
+          successMessage += `👀 Views: ${data.videoDetails.viewCount || 'Unknown'}\n`;
+        }
+        
+        successMessage += `📄 Chunks Created: ${data.chunks}\n`;
+        successMessage += `📝 Transcript Length: ${data.transcriptLength} characters\n\n`;
+        successMessage += `✨ Transcribed using OpenAI Whisper AI for maximum accuracy!`;
+        
+        alert(successMessage);
+      } else {
+        const errorMsg = data.error || 'Whisper transcription failed';
+        const details = data.details ? `\n\nDetails: ${data.details}` : '';
+        const troubleshooting = data.troubleshooting ? 
+          `\n\nTroubleshooting:\n${data.troubleshooting.map((tip: string) => `• ${tip}`).join('\n')}` : '';
+        
+        throw new Error(errorMsg + details + troubleshooting);
+      }
+    } catch (error) {
+      console.error('Whisper transcription error:', error);
+      alert(`Error transcribing video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setUploadProgress(false);
+    }
+  };
+
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.metadata.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -336,7 +448,7 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Quick Actions
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Document Upload Area */}
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
                 <FileText className="h-12 w-12 text-blue-600 mx-auto mb-3" />
@@ -373,6 +485,27 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
+              {/* Whisper AI Transcription Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
+                <div className="flex items-center justify-center mb-3">
+                  <Youtube className="h-10 w-10 text-orange-600 mr-1" />
+                  <span className="text-orange-600 font-bold text-lg">AI</span>
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Whisper AI
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  AI transcription using OpenAI Whisper (works on any video!)
+                </p>
+                <button
+                  onClick={() => setShowWhisperDialog(true)}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center mx-auto"
+                >
+                  <span className="mr-2">🤖</span>
+                  Whisper AI
+                </button>
+              </div>
+
               {/* Manual Transcript Area */}
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
                 <div className="flex items-center justify-center mb-3">
@@ -391,6 +524,27 @@ export default function AdminDashboard() {
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Manual
+                </button>
+              </div>
+
+              {/* Channel Processing Area */}
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
+                <div className="flex items-center justify-center mb-3">
+                  <Youtube className="h-10 w-10 text-purple-600 mr-1" />
+                  <Database className="h-6 w-6 text-purple-600" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Process Channel
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Batch process all videos from a YouTube channel
+                </p>
+                <button
+                  onClick={() => setShowChannelDialog(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center mx-auto"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  Process Channel
                 </button>
               </div>
             </div>
@@ -442,11 +596,27 @@ export default function AdminDashboard() {
                 </button>
 
                 <button
+                  onClick={() => setShowWhisperDialog(true)}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center"
+                >
+                  <span className="mr-2">🤖</span>
+                  Whisper AI
+                </button>
+
+                <button
                   onClick={() => setShowManualTranscriptDialog(true)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Manual Transcript
+                </button>
+
+                <button
+                  onClick={() => setShowChannelDialog(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  Process Channel
                 </button>
 
                 <button
@@ -804,6 +974,290 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Channel Processing Dialog */}
+        {showChannelDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                🎬 Process YouTube Channel
+              </h3>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  ✨ Channel Processing Features:
+                </h4>
+                <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                  <li>Fetches all videos from a YouTube channel</li>
+                  <li>Extracts transcripts automatically using YouTube Data API v3</li>
+                  <li>Adds rich metadata (title, views, likes, duration, etc.)</li>
+                  <li>Processes videos in batch with progress tracking</li>
+                  <li>Skips videos already in your knowledge base</li>
+                </ul>
+              </div>
+
+              <form onSubmit={handleChannelSubmit} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      YouTube Data API Key (Required for Channel Processing)
+                    </label>
+                    <a 
+                      href="https://console.cloud.google.com/apis/credentials" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Get API Key →
+                    </a>
+                  </div>
+                  <input
+                    type="password"
+                    value={youtubeApiKey}
+                    onChange={(e) => setYoutubeApiKey(e.target.value)}
+                    placeholder="Your YouTube Data API v3 key"
+                    disabled={uploadProgress}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p>📋 <strong>Required for:</strong> Channel discovery, video metadata, and enhanced transcript extraction</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    YouTube Channel (URL, Handle, or Channel ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={channelInput}
+                    onChange={(e) => setChannelInput(e.target.value)}
+                    placeholder="e.g., https://youtube.com/@channelname, @username, or UC1234..."
+                    disabled={uploadProgress}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-0.5">
+                    <p><strong>Supported formats:</strong></p>
+                    <ul className="list-disc list-inside ml-2">
+                      <li>Channel URL: https://youtube.com/@channelname</li>
+                      <li>Handle: @channelname</li>
+                      <li>Channel ID: UC1234567890abcdef...</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Max Videos to Process
+                    </label>
+                    <input
+                      type="number"
+                      value={maxVideos}
+                      onChange={(e) => setMaxVideos(Math.max(1, Math.min(200, Number(e.target.value))))}
+                      min="1"
+                      max="200"
+                      placeholder="25"
+                      disabled={uploadProgress}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Recent videos are processed first (max: 200)
+                    </p>
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={skipExisting}
+                        onChange={(e) => setSkipExisting(e.target.checked)}
+                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <span className="ml-2">
+                        Skip existing videos
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                      Recommended to avoid duplicates
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <div className="flex items-start">
+                    <div className="text-amber-600 dark:text-amber-400 mr-2">⚠️</div>
+                    <div>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-1">
+                        Processing Time Notice:
+                      </p>
+                      <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-0.5 list-disc list-inside">
+                        <li>Large channels may take 10-30+ minutes to process</li>
+                        <li>Each video requires transcript extraction and chunking</li>
+                        <li>Keep this tab open during processing</li>
+                        <li>Results will show detailed progress summary</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChannelDialog(false);
+                      setChannelInput('');
+                    }}
+                    disabled={uploadProgress}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadProgress || !channelInput.trim() || !youtubeApiKey.trim()}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {uploadProgress ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Processing Channel...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-4 w-4 mr-2" />
+                        Start Processing
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* Whisper AI Transcription Dialog */}
+        {showWhisperDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                🤖 Whisper AI Transcription
+              </h3>
+              
+              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                  ✨ Whisper AI Features:
+                </h4>
+                <ul className="text-xs text-orange-700 dark:text-orange-300 space-y-1 list-disc list-inside">
+                  <li>Works on ANY YouTube video (no captions required)</li>
+                  <li>State-of-the-art AI transcription accuracy</li>
+                  <li>Handles multiple languages and accents</li>
+                  <li>Perfect for videos without existing captions</li>
+                  <li>Downloads audio and transcribes using OpenAI Whisper</li>
+                </ul>
+              </div>
+
+              <form onSubmit={handleWhisperSubmit} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      YouTube Data API Key (Optional)
+                    </label>
+                    <a 
+                      href="https://console.cloud.google.com/apis/credentials" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Get API Key →
+                    </a>
+                  </div>
+                  <input
+                    type="password"
+                    value={youtubeApiKey}
+                    onChange={(e) => setYoutubeApiKey(e.target.value)}
+                    placeholder="For enhanced video metadata (optional)"
+                    disabled={uploadProgress}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p>🎯 <strong>Optional:</strong> Adds video title, channel, views, and other metadata</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    YouTube URL
+                  </label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="url"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      disabled={uploadProgress}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    ✨ Works on videos with or without existing captions!
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <div className="flex items-start">
+                    <div className="text-blue-600 dark:text-blue-400 mr-2">ℹ️</div>
+                    <div>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">
+                        How it works:
+                      </p>
+                      <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-0.5 list-disc list-inside">
+                        <li>Downloads audio from the YouTube video</li>
+                        <li>Sends audio to OpenAI Whisper for transcription</li>
+                        <li>Creates searchable chunks in your knowledge base</li>
+                        <li>Processing time: ~1-2 minutes per video</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowWhisperDialog(false);
+                      setYoutubeUrl('');
+                    }}
+                    disabled={uploadProgress}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadProgress || !youtubeUrl.trim()}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {uploadProgress ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Transcribing...
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-2">🤖</span>
+                        Start Whisper AI
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );
