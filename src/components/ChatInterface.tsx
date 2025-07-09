@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Upload, Youtube, Bot, User, Mic, MicOff, Settings, ExternalLink, FileText } from 'lucide-react';
+import { Send, Upload, Bot, User, Mic, MicOff, Settings, ExternalLink, FileText, VolumeX } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -22,7 +22,7 @@ export default function ChatInterface() {
     {
       id: '1',
       type: 'bot',
-      content: 'Hello! I\'m your Robot Building Assistant. I can help you with technical questions about building robots. You can ask me questions, upload documents, or share YouTube links for analysis.',
+      content: 'Hello! I\'m your Robot Building Assistant. I can help you with technical questions about building robots. You can ask me questions, upload documents, or use voice commands for a more interactive experience.',
       timestamp: new Date(),
     },
   ]);
@@ -31,61 +31,15 @@ export default function ChatInterface() {
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   
-  const handleYouTubeLink = async () => {
-    const youtubeUrl = prompt('Enter YouTube URL:');
-    if (!youtubeUrl) return;
-
-    try {
-      setIsLoading(true);
-      
-      const response = await fetch('/api/youtube', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ youtubeUrl }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        const youtubeMessage: Message = {
-          id: Date.now().toString(),
-          type: 'bot',
-          content: `🎥 YouTube video transcript processed successfully! I can now use information from this video to help answer your robot building questions.`,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, youtubeMessage]);
-      } else {
-        const errorMessage = data.error || 'YouTube processing failed';
-        const suggestion = data.suggestion || '';
-        
-        let content = `❌ Error processing YouTube video: ${errorMessage}`;
-        if (suggestion) {
-          content += `\n\n💡 ${suggestion}`;
-        }
-        content += `\n\n🔧 For enhanced YouTube processing with better reliability and metadata, visit the admin dashboard where you can:\n• Use a YouTube Data API key for improved reliability\n• Upload transcripts manually if automatic extraction fails\n• Get detailed video information (views, likes, etc.)`;
-        
-        const errorMsg: Message = {
-          id: Date.now().toString(),
-          type: 'bot',
-          content,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, errorMsg]);
-      }
-    } catch (error) {
-      console.error('YouTube error:', error);
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'bot',
-        content: '❌ Sorry, there was an error processing the YouTube video. Please make sure the URL is valid and the video has captions available.\n\n🔧 For advanced YouTube processing options, visit the admin dashboard.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
+  const stopSpeaking = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+      setIsSpeaking(false);
     }
   };
 
@@ -311,6 +265,19 @@ export default function ChatInterface() {
       // Play the audio response if available
       if (data.audioUrl) {
         const audio = new Audio(data.audioUrl);
+        setCurrentAudio(audio);
+        setIsSpeaking(true);
+        
+        audio.addEventListener('ended', () => {
+          setCurrentAudio(null);
+          setIsSpeaking(false);
+        });
+        
+        audio.addEventListener('error', () => {
+          setCurrentAudio(null);
+          setIsSpeaking(false);
+        });
+        
         audio.play().catch(console.error);
       }
     } catch (error) {
@@ -390,7 +357,7 @@ export default function ChatInterface() {
                         {message.sources.map((source, index) => (
                           <div key={index} className="flex items-center gap-1 text-xs">
                             {source.type === 'youtube' ? (
-                              <Youtube size={12} className="text-red-500" />
+                              <ExternalLink size={12} className="text-red-500" />
                             ) : (
                               <FileText size={12} className="text-blue-500" />
                             )}
@@ -466,14 +433,16 @@ export default function ChatInterface() {
               />
             </label>
             
-            <button
-              type="button"
-              onClick={handleYouTubeLink}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              title="Add YouTube Link"
-            >
-              <Youtube size={20} />
-            </button>
+            {isSpeaking && (
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
+                title="Stop Speaking"
+              >
+                <VolumeX size={20} />
+              </button>
+            )}
 
             <button
               type="button"
