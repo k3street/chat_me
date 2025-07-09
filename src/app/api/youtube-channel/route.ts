@@ -33,34 +33,6 @@ interface ChannelProcessingResult {
   }>;
 }
 
-function extractChannelId(input: string): string | null {
-  // Handle different channel URL formats
-  const patterns = [
-    // Channel ID format: UC...
-    /^UC[a-zA-Z0-9_-]{22}$/,
-    // Channel URL formats
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/channel\/([^&\n?#]+)/,
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/@([^&\n?#]+)/,
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/c\/([^&\n?#]+)/,
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/user\/([^&\n?#]+)/,
-  ];
-
-  // Check if it's already a channel ID
-  if (patterns[0].test(input)) {
-    return input;
-  }
-
-  // Try to extract from URL patterns
-  for (let i = 1; i < patterns.length; i++) {
-    const match = input.match(patterns[i]);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
-
 async function resolveChannelId(identifier: string, apiKey: string): Promise<{ id: string; title: string } | null> {
   try {
     const youtube = google.youtube({ version: 'v3', auth: apiKey });
@@ -220,8 +192,9 @@ async function transcribeWithWhisper(audioPath: string): Promise<string> {
     // Create form data
     const formData = new FormData();
     
-    // Read the audio file
-    const audioBuffer = await require('fs').promises.readFile(audioPath);
+    // Read the audio file using dynamic import to avoid require
+    const { readFile } = await import('fs/promises');
+    const audioBuffer = await readFile(audioPath);
     const audioBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
     
     formData.append('file', audioBlob, 'audio.mp4');
@@ -421,7 +394,7 @@ export async function POST(request: NextRequest) {
         content += `\nTranscript (via Whisper AI):\n${transcript}`;
 
         // Add to vector store
-        const documentId = await addDocument(content, {
+        await addDocument(content, {
           type: 'youtube',
           source: `https://www.youtube.com/watch?v=${video.videoId}`,
           url: `https://www.youtube.com/watch?v=${video.videoId}`,
